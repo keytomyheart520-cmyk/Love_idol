@@ -1,0 +1,17 @@
+{
+  "name": "love_idol 演唱會日記",
+  "short_name": "love_idol",
+  "description": "記錄每一場演唱會的心得、歌單和照片",
+  "lang": "zh-Hant",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EBD9D6",
+  "theme_color": "#D8B6B3",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
