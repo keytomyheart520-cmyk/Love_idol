@@ -57,6 +57,8 @@ h1{font-size:34px;letter-spacing:.06em;margin:8px 0 2px;font-weight:400;text-ali
 .stars{color:var(--star);letter-spacing:2px;font-size:15px}
 .snip{font-size:14px;margin:4px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .mini{font-size:13px;color:var(--muted);margin-top:2px}
+.foot{text-align:center;margin-top:18px}
+.linkbtn{background:none;border:0;color:var(--muted);font-size:14px;text-decoration:underline;cursor:pointer;padding:8px 12px}
 .empty{text-align:center;color:var(--muted);padding:48px 12px;border:2px dashed var(--line);border-radius:18px}
 
 .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:14px 28px;font-size:16px;box-shadow:0 6px 18px rgba(74,40,44,.3);cursor:pointer}
@@ -117,6 +119,7 @@ textarea.song-in{min-height:0;height:44px}
   <p class="sub" id="count"></p>
   <input class="search" id="q" type="search" placeholder="搜尋藝人、巡迴、歌名或心得" aria-label="搜尋">
   <div id="list"></div>
+  <div class="foot"><button class="linkbtn" id="backup">備份與還原</button></div>
 </div>
 <button class="fab" id="add">＋ 新增心得</button>
 
@@ -345,6 +348,64 @@ textarea.song-in{min-height:0;height:44px}
     };
   }
 
+
+  /* ---------- backup / restore ---------- */
+  function today(){ return new Date().toISOString().slice(0,10); }
+  function lastBackup(){ try{ return localStorage.getItem("love-idol-last-backup")||""; }catch(e){ return ""; } }
+  function markBackup(){ try{ localStorage.setItem("love-idol-last-backup",today()); }catch(e){} }
+  function downloadFile(file){
+    var url=URL.createObjectURL(file), a=document.createElement("a");
+    a.href=url; a.download=file.name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); },4000);
+    markBackup(); toast("已匯出備份檔，請妥善保存");
+  }
+  function exportBackup(){
+    if(!items.length){ toast("目前還沒有紀錄可以備份"); return; }
+    var json=JSON.stringify({app:"love_idol",version:1,exported:new Date().toISOString(),items:items});
+    var file=new File([json],"love_idol-backup-"+today()+".json",{type:"application/json"});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:"love_idol 備份"}).then(function(){ markBackup(); toast("備份完成"); })
+        .catch(function(e){ if(!e||e.name!=="AbortError") downloadFile(file); });
+    }else{ downloadFile(file); }
+  }
+  function importBackup(file){
+    var r=new FileReader();
+    r.onload=function(){
+      var data; try{ data=JSON.parse(r.result); }catch(e){ toast("這不是有效的備份檔"); return; }
+      var list=Array.isArray(data)?data:(data&&Array.isArray(data.items)?data.items:null);
+      if(!list){ toast("這不是有效的備份檔"); return; }
+      var have={}; items.forEach(function(x){ have[x.id]=true; });
+      var added=0, skipped=0;
+      list.forEach(function(x){
+        if(!x||typeof x!=="object"||x.id==null||!x.artist){ skipped++; return; }
+        if(have[x.id]){ skipped++; return; }
+        have[x.id]=true; items.push(x); added++;
+      });
+      save(); render(); showBackup();
+      toast("已還原 "+added+" 場"+(skipped?"，略過 "+skipped+" 筆重複或無效":""));
+    };
+    r.onerror=function(){ toast("讀取檔案失敗"); };
+    r.readAsText(file);
+  }
+  function showBackup(){
+    var lb=lastBackup();
+    open('<h2>備份與還原</h2>'
+      +'<p class="meta">目前共 '+items.length+' 場紀錄。資料只存在這支手機裡，換手機、清除瀏覽器資料或刪除 app 前，請先匯出備份。</p>'
+      +'<p class="meta">'+(lb?'上次備份：'+esc(lb):'還沒有備份過')+'</p>'
+      +'<div class="block" style="white-space:normal"><h3>換手機怎麼做</h3>'
+      +'1. 舊手機按「匯出備份檔」，存到雲端硬碟、LINE Keep 或傳給自己<br>'
+      +'2. 新手機打開 love_idol，按「匯入備份檔」選擇那個檔案<br>'
+      +'匯入只會新增，不會覆蓋你已經有的紀錄。</div>'
+      +'<input type="file" id="bfile" accept=".json,application/json" hidden>'
+      +'<div class="actions"><button class="btn primary" id="bexp">匯出備份檔</button><button class="btn" id="bimp">匯入備份檔</button></div>'
+      +'<div class="actions"><button class="btn" id="bclose">關閉</button></div>');
+    $("bexp").onclick=exportBackup;
+    $("bimp").onclick=function(){ $("bfile").click(); };
+    $("bfile").onchange=function(e){ var f=e.target.files&&e.target.files[0]; if(f) importBackup(f); e.target.value=""; };
+    $("bclose").onclick=close;
+  }
+
+  $("backup").onclick=showBackup;
   $("add").onclick=function(){ showForm(null); };
   $("q").oninput=function(e){ q=e.target.value; render(); };
   $("list").onclick=function(e){ var t=e.target.closest(".ticket"); if(t) showDetail(+t.getAttribute("data-id")); };
